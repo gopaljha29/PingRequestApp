@@ -18,20 +18,20 @@ import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.internal.operators.flowable.FlowableBlockingSubscribe.subscribe
 import io.reactivex.internal.util.HalfSerializer.onNext
 import io.reactivex.schedulers.Schedulers
-import org.reactivestreams.Subscriber
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import java.lang.Exception
 
 
 class MainActivity : AppCompatActivity() {
 
-
-
+    var ipaddr:String=""
+    private val TAG="MainActivity"
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        var ipaddr:String
-        var host:Boolean=false
-        pingBtn.setOnClickListener{
-            ipaddr=getIP()
+        Log.i(TAG,"onCreate called");
+
 //          //  class SimpleThread: Thread() {
 //            //    override fun run() {
 //                   val host:Boolean= PingRequest.sendPingRequest(ipaddr)
@@ -48,63 +48,88 @@ class MainActivity : AppCompatActivity() {
 //           // val thread = SimpleThread()
 //          //  thread.start()
 
-            Observable.fromCallable(object : Callable<Boolean> {
-
-                @Throws(Exception::class)
-                override fun call(): Boolean {
-
-                    host=PingRequest.sendPingRequest(ipaddr)
-
-                    return host
-                }
-
-            }).subscribeOn(Schedulers.newThread())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe{
-                    onNext->printToast(onNext,ipaddr)
-                }
+//            Observable.fromCallable(object : Callable<Boolean> {
+//
+//                @Throws(Exception::class)
+//                override fun call(): Boolean {
+//                   return PingRequest.sendPingRequest(ipaddr)
+//                }
+//
+//            }).subscribeOn(Schedulers.newThread())
+//                .observeOn(AndroidSchedulers.mainThread())
+//                .subscribe{
+//                    onNext->printToast(onNext,ipaddr)
+//                }
 
 
 
-            Log.i("onCreate","IP Address : $ipaddr")
 
           //  Toast.makeText(this,"IP Address is $ipaddr",Toast.LENGTH_SHORT).show()
         }
 
+
+
+    override fun onStart() {
+        super.onStart()
+        Log.i(TAG,"onStart called")
+        pingBtn.setOnClickListener {
+            ipaddr = getIP()
+            GlobalScope.launch {
+                try {
+                    var flag = sendPingRequest(ipaddr)
+                    runOnUiThread {
+                        printToast(flag, ipaddr)
+                    }
+                } catch (e: UnknownHostException) {
+                    runOnUiThread {
+                        Toast.makeText(this@MainActivity, "UNKOWN HOST", Toast.LENGTH_SHORT).show()
+                    }
+                    Log.e(TAG, "onStart: UnkownHostException")
+
+                } catch (e: IOException) {
+                    e.printStackTrace()
+                }
+
+            }
+            Log.i(TAG, "onCreate: IP Address : $ipaddr")
+        }
     }
-
-
-    fun getIP():String{
+    private fun getIP():String{
         var ipad=iptext.text
-        Log.i("getIP","text entered : $ipad")
+        Log.i("","getIP: text entered : $ipad")
      //   Toast.makeText(this,"IP Address is $ipad",Toast.LENGTH_SHORT).show()
 
         return ipad.toString()
     }
 
     @Throws(UnknownHostException::class, IOException::class)
-    fun sendPingRequest(ipAddress: String):Unit {
-        val geek = InetAddress.getByName(ipAddress)
-        Log.i("sendPingRequest","Sending Ping Request to $ipAddress")
-        if (geek.isReachable(500)) {
-            runOnUiThread {
-                Toast.makeText(this, "Host $ipAddress is reachable", Toast.LENGTH_SHORT).show()
-            }
-        }
-        else
-            runOnUiThread {
-                Toast.makeText(this, "Host $ipAddress is reachable", Toast.LENGTH_SHORT).show()
-            }
-
+    suspend fun sendPingRequest(ipAddress: String):Boolean{
+        var flag:Boolean
+       // var job= GlobalScope.launch {
+            val geek = InetAddress.getByName(ipAddress)
+            Log.i(TAG,"sendPingRequest: Sending Ping Request to $ipAddress")
+            flag = geek.isReachable(500)
+            return flag
+       // }
+//        job.invokeOnCompletion {
+//            runOnUiThread {
+//                printToast(flag, ipAddress)
+//            }
+//        }
     }
 
-    fun printToast(host:Boolean,ipAddress: String):Unit {
+    private fun printToast(host:Boolean,ipAddress: String) {
         if (host) {
             Toast.makeText(this, "Host $ipAddress is reachable", Toast.LENGTH_SHORT).show()
         }else{
-            Toast.makeText(this, "Host $ipAddress is reachable", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Host $ipAddress is not reachable", Toast.LENGTH_SHORT).show()
         }
+    }
+    private fun printStringOnToast():(String)-> Unit={
+        Toast.makeText(this,it,Toast.LENGTH_SHORT).show()
 
     }
 
 }
+
+
